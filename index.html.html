@@ -1,0 +1,1206 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <script src=\"https://unpkg.com/@supabase/supabase-js\"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نظام محاسبة إبراهيم المتكامل</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .hidden {
+            display: none;
+        }
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background: white;
+            padding: 2rem;
+            border-radius: 0.5rem;
+            max-width: 600px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: right;
+        }
+        th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- شاشة تسجيل الدخول -->
+    <div id="loginScreen" class="min-h-screen flex items-center justify-center">
+        <div class="max-w-md w-full space-y-8 p-8">
+            <div class="text-center">
+                <h2 class="text-3xl font-bold text-gray-900 mb-2">تسجيل الدخول</h2>
+                <p class="text-gray-600">نظام محاسبة إبراهيم المتكامل</p>
+            </div>
+            
+            <form id="loginForm" class="space-y-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">اسم المستخدم</label>
+                    <input type="text" id="username" required 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">كلمة المرور</label>
+                    <input type="password" id="password" required 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+
+                <div id="errorMessage" class="hidden text-red-600 text-sm text-center bg-red-50 p-3 rounded"></div>
+
+                <button type="submit" id="loginButton" 
+                        class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors">
+                    تسجيل الدخول
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- لوحة التحكم -->
+    <div id="dashboard" class="hidden min-h-screen">
+        <!-- Header -->
+        <header class="bg-white shadow-sm border-b">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between items-center py-4">
+                    <h1 class="text-2xl font-bold text-gray-900">نظام محاسبة إبراهيم المتكامل</h1>
+                    <div class="flex items-center space-x-4 space-x-reverse">
+                        <span id="userInfo" class="text-gray-700"></span>
+                        <button onclick="showProfileModal()" 
+                                class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors">
+                            الملف الشخصي
+                        </button>
+                        <button onclick="logout()" 
+                                class="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition-colors">
+                            تسجيل الخروج
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+            <div class="mb-8">
+                <nav class="flex space-x-4 space-x-reverse mb-8">
+                    <button onclick="showSection('dashboardSection', this)" class="nav-btn py-4 px-2 border-b-2 border-blue-500 text-blue-600 font-medium">
+                        لوحة التحكم
+                    </button>
+                    <button onclick="showSection('warehouseSection', this)" class="nav-btn py-4 px-2 border-b-2 border-transparent text-gray-500 hover:text-gray-700">
+                        المستودع
+                    </button>
+                    <button onclick="showSection('incomingSection', this)" class="nav-btn py-4 px-2 border-b-2 border-transparent text-gray-500 hover:text-gray-700">
+                        الواردات
+                    </button>
+                    <button onclick="showSection('outgoingSection', this)" class="nav-btn py-4 px-2 border-b-2 border-transparent text-gray-500 hover:text-gray-700">
+                        الصادرات
+                    </button>
+                    <button onclick="showSection('reportsSection', this)" class="nav-btn py-4 px-2 border-b-2 border-transparent text-gray-500 hover:text-gray-700">
+                        التقارير
+                    </button>
+                    <button onclick="showSection('usersSection', this)" id="usersTab" class="nav-btn py-4 px-2 border-b-2 border-transparent text-gray-500 hover:text-gray-700">
+                        إدارة المستخدمين
+                    </button>
+                </nav>
+            </div>
+
+            <!-- لوحة التحكم -->
+            <div id="dashboardSection" class="content-section">
+                <h2 class="text-xl font-semibold text-gray-900 mb-4">لوحة التحكم</h2>
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+                    <div class="bg-white p-6 rounded-lg shadow">
+                        <h3 class="text-lg font-medium text-gray-900 mb-2">إجمالي المنتجات</h3>
+                        <p class="text-3xl font-bold text-blue-600" id="totalProducts">0</p>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow">
+                        <h3 class="text-lg font-medium text-gray-900 mb-2">إجمالي الواردات</h3>
+                        <p class="text-3xl font-bold text-green-600" id="totalIncoming">0</p>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow">
+                        <h3 class="text-lg font-medium text-gray-900 mb-2">إجمالي الصادرات</h3>
+                        <p class="text-3xl font-bold text-red-600" id="totalOutgoing">0</p>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow">
+                        <h3 class="text-lg font-medium text-gray-900 mb-2">المخزون الحالي</h3>
+                        <p class="text-3xl font-bold text-purple-600" id="currentStock">0</p>
+                    </div>
+                </div>
+                
+                <!-- آخر العمليات -->
+                <div class="bg-white p-6 rounded-lg shadow">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">آخر العمليات</h3>
+                    <div id="recentActivities"></div>
+                </div>
+            </div>
+
+            <!-- قسم المستودع -->
+            <div id="warehouseSection" class="content-section hidden">
+                <h2 class="text-xl font-semibold text-gray-900 mb-4">إدارة المستودع</h2>
+                <div class="bg-white p-6 rounded-lg shadow mb-6">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">إضافة منتج للمستودع</h3>
+                    <form id="addWarehouseForm" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label for="warehouseType" class="block text-sm font-medium text-gray-700">النوع</label>
+                            <input type="text" id="warehouseType" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
+                        </div>
+                        <div>
+                            <label for="warehouseSize" class="block text-sm font-medium text-gray-700">المقاس</label>
+                            <input type="text" id="warehouseSize" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
+                        </div>
+                        <div>
+                            <label for="warehouseBrand" class="block text-sm font-medium text-gray-700">الماركة</label>
+                            <input type="text" id="warehouseBrand" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
+                        </div>
+                        <div>
+                            <label for="warehouseCurrentQty" class="block text-sm font-medium text-gray-700">الكمية الحالية</label>
+                            <input type="number" id="warehouseCurrentQty" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
+                        </div>
+                        <div>
+                            <label for="warehouseImportPrice" class="block text-sm font-medium text-gray-700">سعر الاستيراد</label>
+                            <input type="number" id="warehouseImportPrice" step="0.01" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
+                        </div>
+                        <div>
+                            <label for="warehouseSellPrice" class="block text-sm font-medium text-gray-700">سعر المبيع</label>
+                            <input type="number" id="warehouseSellPrice" step="0.01" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
+                        </div>
+                        <div>
+                            <label for="warehouseOutQty" class="block text-sm font-medium text-gray-700">الكمية الصادرة</label>
+                            <input type="number" id="warehouseOutQty" value="0" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
+                        </div>
+                        <div>
+                            <label for="warehouseDate" class="block text-sm font-medium text-gray-700">التاريخ</label>
+                            <input type="date" id="warehouseDate" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
+                        </div>
+                        <div>
+                            <label for="warehouseCurrency" class="block text-sm font-medium text-gray-700">العملة</label>
+                            <select id="warehouseCurrency" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
+                                <option value="SYP">ليرة سورية</option>
+                                <option value="USD">دولار أمريكي</option>
+                                <option value="TRY">ليرة تركية</option>
+                            </select>
+                        </div>
+                        <div class="md:col-span-3">
+                            <label for="warehouseNotes" class="block text-sm font-medium text-gray-700">ملاحظات</label>
+                            <textarea id="warehouseNotes" rows="3" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3"></textarea>
+                        </div>
+                        <div class="md:col-span-3">
+                            <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">إضافة للمستودع</button>
+                        </div>
+                    </form>
+                    <div id="warehouseMessage" class="mt-4"></div>
+                </div>
+                <div class="bg-white p-6 rounded-lg shadow">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">قائمة المستودع</h3>
+                    <div id="warehouseList" class="overflow-x-auto"></div>
+                </div>
+            </div>
+
+            <!-- قسم الواردات -->
+            <div id="incomingSection" class="content-section hidden">
+                <h2 class="text-xl font-semibold text-gray-900 mb-4">إدارة الواردات</h2>
+                <div class="bg-white p-6 rounded-lg shadow mb-6">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">إضافة وارد جديد</h3>
+                    <form id="addIncomingForm" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label for="incomingType" class="block text-sm font-medium text-gray-700">النوع</label>
+                            <input type="text" id="incomingType" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
+                        </div>
+                        <div>
+                            <label for="incomingSupplier" class="block text-sm font-medium text-gray-700">اسم المورد</label>
+                            <input type="text" id="incomingSupplier" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
+                        </div>
+                        <div>
+                            <label for="incomingSize" class="block text-sm font-medium text-gray-700">المقاس</label>
+                            <input type="text" id="incomingSize" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
+                        </div>
+                        <div>
+                            <label for="incomingBrand" class="block text-sm font-medium text-gray-700">الماركة</label>
+                            <input type="text" id="incomingBrand" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
+                        </div>
+                        <div>
+                            <label for="incomingQuantity" class="block text-sm font-medium text-gray-700">الكمية الحالية</label>
+                            <input type="number" id="incomingQuantity" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
+                        </div>
+                        <div>
+                            <label for="incomingPrice" class="block text-sm font-medium text-gray-700">السعر</label>
+                            <input type="number" id="incomingPrice" step="0.01" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
+                        </div>
+                        <div>
+                            <label for="incomingDate" class="block text-sm font-medium text-gray-700">التاريخ</label>
+                            <input type="date" id="incomingDate" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
+                        </div>
+                        <div>
+                            <label for="incomingCurrency" class="block text-sm font-medium text-gray-700">العملة</label>
+                            <select id="incomingCurrency" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
+                                <option value="SYP">ليرة سورية</option>
+                                <option value="USD">دولار أمريكي</option>
+                                <option value="TRY">ليرة تركية</option>
+                            </select>
+                        </div>
+                        <div class="md:col-span-3">
+                            <label for="incomingNotes" class="block text-sm font-medium text-gray-700">ملاحظات</label>
+                            <textarea id="incomingNotes" rows="3" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3"></textarea>
+                        </div>
+                        <div class="md:col-span-3">
+                            <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700">إضافة وارد</button>
+                        </div>
+                    </form>
+                    <div id="incomingMessage" class="mt-4"></div>
+                </div>
+                <div class="bg-white p-6 rounded-lg shadow">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">قائمة الواردات</h3>
+                    <div id="incomingList" class="overflow-x-auto"></div>
+                </div>
+            </div>
+
+            <!-- قسم الصادرات -->
+            <div id="outgoingSection" class="content-section hidden">
+                <h2 class="text-xl font-semibold text-gray-900 mb-4">إدارة الصادرات</h2>
+                <div class="bg-white p-6 rounded-lg shadow mb-6">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">إضافة صادر جديد</h3>
+                    <form id="addOutgoingForm" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label for="outgoingType" class="block text-sm font-medium text-gray-700">النوع</label>
+                            <input type="text" id="outgoingType" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
+                        </div>
+                        <div>
+                            <label for="outgoingCustomer" class="block text-sm font-medium text-gray-700">اسم المشتري</label>
+                            <input type="text" id="outgoingCustomer" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
+                        </div>
+                        <div>
+                            <label for="outgoingSize" class="block text-sm font-medium text-gray-700">المقاس</label>
+                            <input type="text" id="outgoingSize" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
+                        </div>
+                        <div>
+                            <label for="outgoingBrand" class="block text-sm font-medium text-gray-700">الماركة</label>
+                            <input type="text" id="outgoingBrand" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
+                        </div>
+                        <div>
+                            <label for="outgoingQuantity" class="block text-sm font-medium text-gray-700">الكمية الحالية</label>
+                            <input type="number" id="outgoingQuantity" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
+                        </div>
+                        <div>
+                            <label for="outgoingPrice" class="block text-sm font-medium text-gray-700">السعر</label>
+                            <input type="number" id="outgoingPrice" step="0.01" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
+                        </div>
+                        <div>
+                            <label for="outgoingDate" class="block text-sm font-medium text-gray-700">التاريخ</label>
+                            <input type="date" id="outgoingDate" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
+                        </div>
+                        <div>
+                            <label for="outgoingCurrency" class="block text-sm font-medium text-gray-700">العملة</label>
+                            <select id="outgoingCurrency" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
+                                <option value="SYP">ليرة سورية</option>
+                                <option value="USD">دولار أمريكي</option>
+                                <option value="TRY">ليرة تركية</option>
+                            </select>
+                        </div>
+                        <div class="md:col-span-3">
+                            <label for="outgoingNotes" class="block text-sm font-medium text-gray-700">ملاحظات</label>
+                            <textarea id="outgoingNotes" rows="3" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3"></textarea>
+                        </div>
+                        <div class="md:col-span-3">
+                            <button type="submit" class="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700">إضافة صادر</button>
+                        </div>
+                    </form>
+                    <div id="outgoingMessage" class="mt-4"></div>
+                </div>
+                <div class="bg-white p-6 rounded-lg shadow">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">قائمة الصادرات</h3>
+                    <div id="outgoingList" class="overflow-x-auto"></div>
+                </div>
+            </div>
+
+            <!-- قسم التقارير -->
+            <div id="reportsSection" class="content-section hidden">
+                <h2 class="text-xl font-semibold text-gray-900 mb-4">التقارير المالية</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-white p-6 rounded-lg shadow">
+                        <h3 class="text-lg font-medium text-gray-900 mb-4">تقرير المبيعات</h3>
+                        <div id="salesReport"></div>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow">
+                        <h3 class="text-lg font-medium text-gray-900 mb-4">تقرير المشتريات</h3>
+                        <div id="purchasesReport"></div>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow">
+                        <h3 class="text-lg font-medium text-gray-900 mb-4">تقرير المخزون</h3>
+                        <div id="inventoryReport"></div>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow">
+                        <h3 class="text-lg font-medium text-gray-900 mb-4">تقرير الأرباح والخسائر</h3>
+                        <div id="profitLossReport"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- قسم إدارة المستخدمين -->
+            <div id="usersSection" class="content-section hidden">
+                <h2 class="text-xl font-semibold text-gray-900 mb-4">إدارة المستخدمين</h2>
+                <div class="bg-white p-6 rounded-lg shadow mb-6">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">إضافة مستخدم جديد</h3>
+                    <form id="addUserForm" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label for="newUsername" class="block text-sm font-medium text-gray-700">اسم المستخدم</label>
+                            <input type="text" id="newUsername" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
+                        </div>
+                        <div>
+                            <label for="newPassword" class="block text-sm font-medium text-gray-700">كلمة المرور</label>
+                            <input type="password" id="newPassword" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
+                        </div>
+                        <div>
+                            <label for="newUserRole" class="block text-sm font-medium text-gray-700">الدور</label>
+                            <select id="newUserRole" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
+                                <option value="owner">المالك</option>
+                                <option value="manager">المدير</option>
+                                <option value="accountant">المحاسب</option>
+                                <option value="dataentry">مدخل البيانات</option>
+                            </select>
+                        </div>
+                        <div class="md:col-span-3">
+                            <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">إضافة مستخدم</button>
+                        </div>
+                    </form>
+                    <div id="userMessage" class="mt-4"></div>
+                </div>
+                <div class="bg-white p-6 rounded-lg shadow">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">قائمة المستخدمين</h3>
+                    <div id="usersList"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal للملف الشخصي -->
+    <div id="profileModal" class="modal hidden">
+        <div class="modal-content">
+            <h2 class="text-xl font-bold mb-4">الملف الشخصي</h2>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">اسم المستخدم</label>
+                    <input type="text" id="profileUsername" readonly class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 bg-gray-100">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">الدور</label>
+                    <input type="text" id="profileRole" readonly class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 bg-gray-100">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">كلمة المرور الجديدة</label>
+                    <input type="password" id="newPasswordProfile" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">تأكيد كلمة المرور</label>
+                    <input type="password" id="confirmPasswordProfile" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
+                </div>
+                <div class="flex justify-between">
+                    <button onclick="updatePassword()" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700">
+                        تحديث كلمة المرور
+                    </button>
+                    <button onclick="closeProfileModal()" class="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700">
+                        إغلاق
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal لتعديل المستخدم -->
+    <div id="editUserModal" class="modal hidden">
+        <div class="modal-content">
+            <h2 class="text-xl font-bold mb-4">تعديل المستخدم</h2>
+            <div class="space-y-4">
+                <input type="hidden" id="editUserId">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">اسم المستخدم</label>
+                    <input type="text" id="editUsername" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">الدور</label>
+                    <select id="editUserRole" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
+                        <option value="owner">المالك</option>
+                        <option value="manager">المدير</option>
+                        <option value="accountant">المحاسب</option>
+                        <option value="dataentry">مدخل البيانات</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">كلمة المرور الجديدة (اتركها فارغة للاحتفاظ بالحالية)</label>
+                    <input type="password" id="editUserPassword" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
+                </div>
+                <div class="flex justify-between">
+                    <button onclick="updateUser()" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700">
+                        حفظ التغييرات
+                    </button>
+                    <button onclick="closeEditUserModal()" class="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700">
+                        إلغاء
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://xyhukxqxcafttxzyfvvk.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh5aHVreHF4Y2FmdHR4enlmdnZrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQyNjk4NTUsImV4cCI6MjA2OTg0NTg1NX0.WRhr_iWXv7SUjj8nXeQ4u97gCU3l21bXRPGUA9gg0PI';
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        // البيانات المحلية
+        let currentUser = null;
+        let users = [
+            { id: 1, username: 'admin', password: 'admin123', role: 'owner' },
+            { id: 2, username: 'manager', password: 'manager123', role: 'manager' },
+            { id: 3, username: 'accountant', password: 'acc123', role: 'accountant' },
+            { id: 4, username: 'dataentry', password: 'data123', role: 'dataentry' }
+        ];
+
+        let warehouseItems = [];
+
+        async function loadAllData() {
+            await loadUsers();
+            await loadWarehouseItems();
+            await loadIncomingItems();
+            await loadOutgoingItems();
+        }
+
+        async function loadUsers() {
+            const { data, error } = await supabaseClient
+                .from('users')
+                .select('*');
+            if (!error) {
+                users = data;
+            } else {
+                console.error('خطأ في جلب المستخدمين', error);
+            }
+        }
+
+        async function loadWarehouseItems() {
+            const { data, error } = await supabaseClient
+                .from('warehouse')
+                .select('*');
+            if (!error) {
+                warehouseItems = data;
+            } else {
+                console.error('خطأ في جلب المستودع', error);
+            }
+        }
+
+        async function loadIncomingItems() {
+            const { data, error } = await supabaseClient
+                .from('incoming')
+                .select('*');
+            if (!error) {
+                incomingItems = data;
+            } else {
+                console.error('خطأ في جلب الواردات', error);
+            }
+        }
+
+        async function loadOutgoingItems() {
+            const { data, error } = await supabaseClient
+                .from('outgoing')
+                .select('*');
+            if (!error) {
+                outgoingItems = data;
+            } else {
+                console.error('خطأ في جلب الصادرات', error);
+            }
+        }
+
+        let incomingItems = [];
+        let outgoingItems = [];
+
+                    const savedWarehouse = localStorage.getItem('ibrahim_warehouse');
+            if (savedWarehouse) {
+                warehouseItems = JSON.parse(savedWarehouse);
+            }
+
+            const savedIncoming = localStorage.getItem('ibrahim_incoming');
+            if (savedIncoming) {
+                incomingItems = JSON.parse(savedIncoming);
+            }
+
+            const savedOutgoing = localStorage.getItem('ibrahim_outgoing');
+            if (savedOutgoing) {
+                outgoingItems = JSON.parse(savedOutgoing);
+            }
+        }
+
+                        // تسجيل الدخول
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            const user = users.find(u => u.username === username && u.password === password);
+            
+            if (user) {
+                currentUser = user;
+                document.getElementById('loginScreen').classList.add('hidden');
+                document.getElementById('dashboard').classList.remove('hidden');
+                document.getElementById('userInfo').textContent = `مرحباً، ${user.username} (${getRoleText(user.role)})`;
+                
+                // إخفاء تبويب إدارة المستخدمين للأدوار غير المخولة
+                if (user.role !== 'owner') {
+                    document.getElementById('usersTab').style.display = 'none';
+                }
+                
+                updateDashboard();
+                showRecentActivities();
+            } else {
+                document.getElementById('errorMessage').textContent = 'اسم المستخدم أو كلمة المرور غير صحيحة';
+                document.getElementById('errorMessage').classList.remove('hidden');
+            }
+        });
+
+        // تسجيل الخروج
+        function logout() {
+            currentUser = null;
+            document.getElementById('dashboard').classList.add('hidden');
+            document.getElementById('loginScreen').classList.remove('hidden');
+            document.getElementById('username').value = '';
+            document.getElementById('password').value = '';
+            document.getElementById('errorMessage').classList.add('hidden');
+        }
+
+        // عرض الأقسام
+        function showSection(sectionId, button) {
+            // إخفاء جميع الأقسام
+            document.querySelectorAll('.content-section').forEach(section => {
+                section.classList.add('hidden');
+            });
+            
+            // إظهار القسم المحدد
+            document.getElementById(sectionId).classList.remove('hidden');
+            
+            // تحديث أزرار التنقل
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('border-blue-500', 'text-blue-600');
+                btn.classList.add('border-transparent', 'text-gray-500');
+            });
+            
+            button.classList.remove('border-transparent', 'text-gray-500');
+            button.classList.add('border-blue-500', 'text-blue-600');
+            
+            // تحديث البيانات حسب القسم
+            if (sectionId === 'warehouseSection') {
+                displayWarehouseItems();
+            } else if (sectionId === 'incomingSection') {
+                displayIncomingItems();
+            } else if (sectionId === 'outgoingSection') {
+                displayOutgoingItems();
+            } else if (sectionId === 'usersSection') {
+                displayUsers();
+            } else if (sectionId === 'reportsSection') {
+                generateReports();
+            } else if (sectionId === 'dashboardSection') {
+                updateDashboard();
+                showRecentActivities();
+            }
+        }
+
+        // تحديث لوحة التحكم
+        function updateDashboard() {
+            document.getElementById('totalProducts').textContent = warehouseItems.length;
+            document.getElementById('totalIncoming').textContent = incomingItems.length;
+            document.getElementById('totalOutgoing').textContent = outgoingItems.length;
+            
+            // حساب المخزون الحالي
+            const currentStock = warehouseItems.reduce((sum, item) => sum + (item.currentQty || 0), 0);
+            document.getElementById('currentStock').textContent = currentStock;
+        }
+
+        // عرض آخر العمليات
+        function showRecentActivities() {
+            const activities = [];
+            
+            // إضافة آخر 5 عمليات من كل نوع
+            warehouseItems.slice(-3).forEach(item => {
+                activities.push({
+                    type: 'مستودع',
+                    description: `إضافة ${item.type} - ${item.brand}`,
+                    date: item.date,
+                    class: 'text-blue-600'
+                });
+            });
+            
+            incomingItems.slice(-3).forEach(item => {
+                activities.push({
+                    type: 'وارد',
+                    description: `استلام ${item.type} من ${item.supplier}`,
+                    date: item.date,
+                    class: 'text-green-600'
+                });
+            });
+            
+            outgoingItems.slice(-3).forEach(item => {
+                activities.push({
+                    type: 'صادر',
+                    description: `بيع ${item.type} إلى ${item.customer}`,
+                    date: item.date,
+                    class: 'text-red-600'
+                });
+            });
+            
+            // ترتيب حسب التاريخ
+            activities.sort((a, b) => new Date(b.date) - new Date(a.date));
+            
+            const html = activities.slice(0, 10).map(activity => `
+                <div class="flex justify-between items-center py-2 border-b">
+                    <div>
+                        <span class="${activity.class} font-medium">[${activity.type}]</span>
+                        <span class="text-gray-700">${activity.description}</span>
+                    </div>
+                    <span class="text-gray-500 text-sm">${activity.date}</span>
+                </div>
+            `).join('');
+            
+            document.getElementById('recentActivities').innerHTML = html || '<p class="text-gray-500">لا توجد عمليات حديثة</p>';
+        }
+
+        // إضافة عنصر للمستودع
+        document.getElementById('addWarehouseForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const item = {
+                id: Date.now(),
+                type: document.getElementById('warehouseType').value,
+                size: document.getElementById('warehouseSize').value,
+                brand: document.getElementById('warehouseBrand').value,
+                currentQty: parseInt(document.getElementById('warehouseCurrentQty').value),
+                importPrice: parseFloat(document.getElementById('warehouseImportPrice').value),
+                sellPrice: parseFloat(document.getElementById('warehouseSellPrice').value),
+                outQty: parseInt(document.getElementById('warehouseOutQty').value) || 0,
+                date: document.getElementById('warehouseDate').value,
+                currency: document.getElementById('warehouseCurrency').value,
+                notes: document.getElementById('warehouseNotes').value
+            };
+            
+            // حساب الربح
+            item.profit = item.sellPrice - item.importPrice;
+            
+            const { data, error } = await supabaseClient.from('warehouse').insert([item]);
+            if(error){console.error(error);} else {warehouseItems.push(data[0]);}
+            
+            displayWarehouseItems();
+            updateDashboard();
+            showRecentActivities();
+            
+            document.getElementById('warehouseMessage').innerHTML = '<div class="text-green-600 bg-green-50 p-3 rounded">تم إضافة العنصر بنجاح</div>';
+            document.getElementById('addWarehouseForm').reset();
+            
+            setTimeout(() => {
+                document.getElementById('warehouseMessage').innerHTML = '';
+            }, 3000);
+        });
+
+        // عرض عناصر المستودع
+        function displayWarehouseItems() {
+            const html = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ت</th>
+                            <th>النوع</th>
+                            <th>المقاس</th>
+                            <th>الماركة</th>
+                            <th>الكمية الحالية</th>
+                            <th>سعر الاستيراد</th>
+                            <th>سعر المبيع</th>
+                            <th>الربح</th>
+                            <th>الكمية الصادرة</th>
+                            <th>التاريخ</th>
+                            <th>العملة</th>
+                            <th>ملاحظات</th>
+                            <th>العمليات</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${warehouseItems.map((item, index) => `
+                            <tr>
+                                <td>${index + 1}</td>
+                                <td>${item.type}</td>
+                                <td>${item.size}</td>
+                                <td>${item.brand}</td>
+                                <td>${item.currentQty}</td>
+                                <td>${item.importPrice}</td>
+                                <td>${item.sellPrice}</td>
+                                <td>${item.profit.toFixed(2)}</td>
+                                <td>${item.outQty}</td>
+                                <td>${item.date}</td>
+                                <td>${getCurrencyText(item.currency)}</td>
+                                <td>${item.notes || '-'}</td>
+                                <td>
+                                    <button onclick="deleteWarehouseItem(${item.id})" class="bg-red-600 text-white px-2 py-1 rounded text-sm hover:bg-red-700">
+                                        حذف
+                                    </button>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+            
+            document.getElementById('warehouseList').innerHTML = warehouseItems.length ? html : '<p class="text-gray-500">لا توجد عناصر في المستودع</p>';
+        }
+
+        // حذف عنصر من المستودع
+        function deleteWarehouseItem(id) {
+            if (confirm('هل أنت متأكد من حذف هذا العنصر؟')) {
+                await supabaseClient.from('warehouse').delete().eq('id', id);
+                warehouseItems = warehouseItems.filter(item => item.id !== id);
+                
+                displayWarehouseItems();
+                updateDashboard();
+                showRecentActivities();
+            }
+        }
+
+        // إضافة وارد
+        document.getElementById('addIncomingForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const item = {
+                id: Date.now(),
+                type: document.getElementById('incomingType').value,
+                supplier: document.getElementById('incomingSupplier').value,
+                size: document.getElementById('incomingSize').value,
+                brand: document.getElementById('incomingBrand').value,
+                currentQty: parseInt(document.getElementById('incomingQuantity').value),
+                price: parseFloat(document.getElementById('incomingPrice').value),
+                date: document.getElementById('incomingDate').value,
+                currency: document.getElementById('incomingCurrency').value,
+                notes: document.getElementById('incomingNotes').value
+            };
+            
+            const { data, error } = await supabaseClient.from('incoming').insert([item]);
+            if(error){console.error(error);} else {incomingItems.push(data[0]);}
+            
+            displayIncomingItems();
+            updateDashboard();
+            showRecentActivities();
+            
+            document.getElementById('incomingMessage').innerHTML = '<div class="text-green-600 bg-green-50 p-3 rounded">تم إضافة الوارد بنجاح</div>';
+            document.getElementById('addIncomingForm').reset();
+            
+            setTimeout(() => {
+                document.getElementById('incomingMessage').innerHTML = '';
+            }, 3000);
+        });
+
+        // عرض الواردات
+        function displayIncomingItems() {
+            const html = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ت</th>
+                            <th>النوع</th>
+                            <th>اسم المورد</th>
+                            <th>المقاس</th>
+                            <th>الماركة</th>
+                            <th>الكمية الحالية</th>
+                            <th>السعر</th>
+                            <th>التاريخ</th>
+                            <th>العملة</th>
+                            <th>ملاحظات</th>
+                            <th>العمليات</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${incomingItems.map((item, index) => `
+                            <tr>
+                                <td>${index + 1}</td>
+                                <td>${item.type}</td>
+                                <td>${item.supplier}</td>
+                                <td>${item.size}</td>
+                                <td>${item.brand}</td>
+                                <td>${item.currentQty}</td>
+                                <td>${item.price}</td>
+                                <td>${item.date}</td>
+                                <td>${getCurrencyText(item.currency)}</td>
+                                <td>${item.notes || '-'}</td>
+                                <td>
+                                    <button onclick="deleteIncomingItem(${item.id})" class="bg-red-600 text-white px-2 py-1 rounded text-sm hover:bg-red-700">
+                                        حذف
+                                    </button>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+            
+            document.getElementById('incomingList').innerHTML = incomingItems.length ? html : '<p class="text-gray-500">لا توجد واردات</p>';
+        }
+
+        // حذف وارد
+        function deleteIncomingItem(id) {
+            if (confirm('هل أنت متأكد من حذف هذا الوارد؟')) {
+                await supabaseClient.from('incoming').delete().eq('id', id);
+                incomingItems = incomingItems.filter(item => item.id !== id);
+                
+                displayIncomingItems();
+                updateDashboard();
+                showRecentActivities();
+            }
+        }
+
+        // إضافة صادر
+        document.getElementById('addOutgoingForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const item = {
+                id: Date.now(),
+                type: document.getElementById('outgoingType').value,
+                customer: document.getElementById('outgoingCustomer').value,
+                size: document.getElementById('outgoingSize').value,
+                brand: document.getElementById('outgoingBrand').value,
+                currentQty: parseInt(document.getElementById('outgoingQuantity').value),
+                price: parseFloat(document.getElementById('outgoingPrice').value),
+                date: document.getElementById('outgoingDate').value,
+                currency: document.getElementById('outgoingCurrency').value,
+                notes: document.getElementById('outgoingNotes').value
+            };
+            
+            const { data, error } = await supabaseClient.from('outgoing').insert([item]);
+            if(error){console.error(error);} else {outgoingItems.push(data[0]);}
+            
+            displayOutgoingItems();
+            updateDashboard();
+            showRecentActivities();
+            
+            document.getElementById('outgoingMessage').innerHTML = '<div class="text-green-600 bg-green-50 p-3 rounded">تم إضافة الصادر بنجاح</div>';
+            document.getElementById('addOutgoingForm').reset();
+            
+            setTimeout(() => {
+                document.getElementById('outgoingMessage').innerHTML = '';
+            }, 3000);
+        });
+
+        // عرض الصادرات
+        function displayOutgoingItems() {
+            const html = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ت</th>
+                            <th>النوع</th>
+                            <th>اسم المشتري</th>
+                            <th>المقاس</th>
+                            <th>الماركة</th>
+                            <th>الكمية الحالية</th>
+                            <th>السعر</th>
+                            <th>التاريخ</th>
+                            <th>العملة</th>
+                            <th>ملاحظات</th>
+                            <th>العمليات</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${outgoingItems.map((item, index) => `
+                            <tr>
+                                <td>${index + 1}</td>
+                                <td>${item.type}</td>
+                                <td>${item.customer}</td>
+                                <td>${item.size}</td>
+                                <td>${item.brand}</td>
+                                <td>${item.currentQty}</td>
+                                <td>${item.price}</td>
+                                <td>${item.date}</td>
+                                <td>${getCurrencyText(item.currency)}</td>
+                                <td>${item.notes || '-'}</td>
+                                <td>
+                                    <button onclick="deleteOutgoingItem(${item.id})" class="bg-red-600 text-white px-2 py-1 rounded text-sm hover:bg-red-700">
+                                        حذف
+                                    </button>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+            
+            document.getElementById('outgoingList').innerHTML = outgoingItems.length ? html : '<p class="text-gray-500">لا توجد صادرات</p>';
+        }
+
+        // حذف صادر
+        function deleteOutgoingItem(id) {
+            if (confirm('هل أنت متأكد من حذف هذا الصادر؟')) {
+                await supabaseClient.from('outgoing').delete().eq('id', id);
+                outgoingItems = outgoingItems.filter(item => item.id !== id);
+                
+                displayOutgoingItems();
+                updateDashboard();
+                showRecentActivities();
+            }
+        }
+
+        // إضافة مستخدم جديد
+        document.getElementById('addUserForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            if (currentUser.role !== 'owner') {
+                alert('ليس لديك صلاحية لإضافة مستخدمين');
+                return;
+            }
+            
+            const username = document.getElementById('newUsername').value;
+            const password = document.getElementById('newPassword').value;
+            const role = document.getElementById('newUserRole').value;
+            
+            // التحقق من عدم وجود المستخدم
+            if (users.find(u => u.username === username)) {
+                document.getElementById('userMessage').innerHTML = '<div class="text-red-600 bg-red-50 p-3 rounded">اسم المستخدم موجود بالفعل</div>';
+                return;
+            }
+            
+            const newUser = {
+                id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+                username: username,
+                password: password,
+                role: role
+            };
+            
+            const { data, error } = await supabaseClient.from('users').insert([newUser]);
+            if(error){console.error(error);} else {users.push(data[0]);}
+            
+            displayUsers();
+            
+            document.getElementById('userMessage').innerHTML = '<div class="text-green-600 bg-green-50 p-3 rounded">تم إضافة المستخدم بنجاح</div>';
+            document.getElementById('addUserForm').reset();
+            
+            setTimeout(() => {
+                document.getElementById('userMessage').innerHTML = '';
+            }, 3000);
+        });
+
+        // عرض المستخدمين
+        function displayUsers() {
+            if (currentUser.role !== 'owner') {
+                document.getElementById('usersList').innerHTML = '<p class="text-red-500">ليس لديك صلاحية لعرض المستخدمين</p>';
+                return;
+            }
+            
+            const html = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>اسم المستخدم</th>
+                            <th>الدور</th>
+                            <th>العمليات</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${users.map(user => `
+                            <tr>
+                                <td>${user.username}</td>
+                                <td>${getRoleText(user.role)}</td>
+                                <td>
+                                    <button onclick="editUser(${user.id})" class="bg-blue-600 text-white px-2 py-1 rounded text-sm hover:bg-blue-700 ml-2">
+                                        تعديل
+                                    </button>
+                                    ${user.username !== 'admin' ? `
+                                        <button onclick="deleteUser(${user.id})" class="bg-red-600 text-white px-2 py-1 rounded text-sm hover:bg-red-700">
+                                            حذف
+                                        </button>
+                                    ` : ''}
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+            
+            document.getElementById('usersList').innerHTML = html;
+        }
+
+        // تعديل مستخدم
+        function editUser(userId) {
+            const user = users.find(u => u.id === userId);
+            if (!user) return;
+            
+            document.getElementById('editUserId').value = user.id;
+            document.getElementById('editUsername').value = user.username;
+            document.getElementById('editUserRole').value = user.role;
+            document.getElementById('editUserPassword').value = '';
+            
+            document.getElementById('editUserModal').classList.remove('hidden');
+        }
+
+        // تحديث مستخدم
+        function updateUser() {
+            const userId = parseInt(document.getElementById('editUserId').value);
+            const username = document.getElementById('editUsername').value;
+            const role = document.getElementById('editUserRole').value;
+            const password = document.getElementById('editUserPassword').value;
+            
+            const userIndex = users.findIndex(u => u.id === userId);
+            if (userIndex === -1) return;
+            
+            users[userIndex].username = username;
+            users[userIndex].role = role;
+            if (password) {
+                users[userIndex].password = password;
+            }
+            
+            
+            displayUsers();
+            closeEditUserModal();
+            
+            alert('تم تحديث المستخدم بنجاح');
+        }
+
+        // حذف مستخدم
+        function deleteUser(userId) {
+            const user = users.find(u => u.id === userId);
+            if (user && user.username === 'admin') {
+                alert('لا يمكن حذف المستخدم الرئيسي');
+                return;
+            }
+            
+            if (confirm('هل أنت متأكد من حذف هذا المستخدم؟')) {
+                await supabaseClient.from('users').delete().eq('id', userId);
+                users = users.filter(u => u.id !== userId);
+                
+                displayUsers();
+            }
+        }
+
+        // إغلاق modal تعديل المستخدم
+        function closeEditUserModal() {
+            document.getElementById('editUserModal').classList.add('hidden');
+        }
+
+        // عرض modal الملف الشخصي
+        function showProfileModal() {
+            document.getElementById('profileUsername').value = currentUser.username;
+            document.getElementById('profileRole').value = getRoleText(currentUser.role);
+            document.getElementById('newPasswordProfile').value = '';
+            document.getElementById('confirmPasswordProfile').value = '';
+            
+            document.getElementById('profileModal').classList.remove('hidden');
+        }
+
+        // إغلاق modal الملف الشخصي
+        function closeProfileModal() {
+            document.getElementById('profileModal').classList.add('hidden');
+        }
+
+        // تحديث كلمة المرور
+        function updatePassword() {
+            const newPassword = document.getElementById('newPasswordProfile').value;
+            const confirmPassword = document.getElementById('confirmPasswordProfile').value;
+            
+            if (!newPassword) {
+                alert('يرجى إدخال كلمة المرور الجديدة');
+                return;
+            }
+            
+            if (newPassword !== confirmPassword) {
+                alert('كلمات المرور غير متطابقة');
+                return;
+            }
+            
+            const userIndex = users.findIndex(u => u.id === currentUser.id);
+            if (userIndex !== -1) {
+                users[userIndex].password = newPassword;
+                currentUser.password = newPassword;
+                
+                closeProfileModal();
+                alert('تم تحديث كلمة المرور بنجاح');
+            }
+        }
+
+        // توليد التقارير
+        function generateReports() {
+            // تقرير المبيعات
+            const totalSales = outgoingItems.reduce((sum, item) => sum + (item.price * item.currentQty), 0);
+            document.getElementById('salesReport').innerHTML = `
+                <p><strong>إجمالي المبيعات:</strong> ${totalSales.toFixed(2)}</p>
+                <p><strong>عدد العمليات:</strong> ${outgoingItems.length}</p>
+            `;
+            
+            // تقرير المشتريات
+            const totalPurchases = incomingItems.reduce((sum, item) => sum + (item.price * item.currentQty), 0);
+            document.getElementById('purchasesReport').innerHTML = `
+                <p><strong>إجمالي المشتريات:</strong> ${totalPurchases.toFixed(2)}</p>
+                <p><strong>عدد العمليات:</strong> ${incomingItems.length}</p>
+            `;
+            
+            // تقرير المخزون
+            const totalStock = warehouseItems.reduce((sum, item) => sum + item.currentQty, 0);
+            const stockValue = warehouseItems.reduce((sum, item) => sum + (item.sellPrice * item.currentQty), 0);
+            document.getElementById('inventoryReport').innerHTML = `
+                <p><strong>إجمالي الكمية:</strong> ${totalStock}</p>
+                <p><strong>قيمة المخزون:</strong> ${stockValue.toFixed(2)}</p>
+            `;
+            
+            // تقرير الأرباح والخسائر
+            const totalProfit = warehouseItems.reduce((sum, item) => sum + (item.profit * item.outQty), 0);
+            document.getElementById('profitLossReport').innerHTML = `
+                <p><strong>إجمالي الأرباح:</strong> ${totalProfit.toFixed(2)}</p>
+                <p><strong>معدل الربح:</strong> ${totalSales > 0 ? ((totalProfit / totalSales) * 100).toFixed(2) : 0}%</p>
+            `;
+        }
+
+        // دوال مساعدة
+        function getRoleText(role) {
+            const roles = {
+                'owner': 'المالك',
+                'manager': 'المدير',
+                'accountant': 'المحاسب',
+                'dataentry': 'مدخل البيانات'
+            };
+            return roles[role] || role;
+        }
+
+        function getCurrencyText(currency) {
+            const currencies = {
+                'SYP': 'ليرة سورية',
+                'USD': 'دولار أمريكي',
+                'TRY': 'ليرة تركية'
+            };
+            return currencies[currency] || currency;
+        }
+
+        // تحميل البيانات عند بدء التطبيق
+        loadAllData();
+        
+        // تعيين التاريخ الحالي للحقول
+        document.addEventListener('DOMContentLoaded', function() {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('warehouseDate').value = today;
+            document.getElementById('incomingDate').value = today;
+            document.getElementById('outgoingDate').value = today;
+        });
+    </script>
+</body>
+</html>
+
